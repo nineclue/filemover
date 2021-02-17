@@ -45,9 +45,10 @@ object FileMover extends IOApp {
         val tDir = fa.apply(f)
         for {
             _ <- makeFolder(tDir, Some(tgt))
-            tpath = tgt.resolve(tDir)
-            _ <- IO(println(s"Moving $f to $tpath"))
-            _ <- IO(Files.move(f, tpath.resolve(f.getFileName())))
+            tpath = tgt.resolve(tDir) // append target directory
+            finalPath = tpath.resolve(f.getFileName()) // append file name
+            _ <- IO(println(s"Moving $f to $finalPath"))
+            // _ <- IO(Files.move(f, finalPath))    // actual move
         } yield()
     }
 
@@ -61,7 +62,7 @@ object FileMover extends IOApp {
             ofs <- oFiles
             tf <- tOFolder
             _ <- (ofs, tf).mapN({ case (fs, tf) =>
-                    fs.traverse(f => moveTo(f, tf, fa))
+                    fs.take(200).traverse(f => moveTo(f, tf, fa))   // remove take(200)
                 }).sequence
         } yield ()
     }
@@ -69,6 +70,6 @@ object FileMover extends IOApp {
     def run(args: List[String]): IO[ExitCode] = {
         val srcName = args.headOption.getOrElse(".")
         val tgtName = args.drop(1).headOption.getOrElse("folder")
-        arrangeFiles(srcName, tgtName, FileNameAttributes).as(ExitCode.Success)
+        arrangeFiles(srcName, tgtName, ExifDateAttributes).as(ExitCode.Success)
     }
 }
