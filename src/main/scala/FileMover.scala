@@ -9,9 +9,14 @@ import java.nio.file.attribute.BasicFileAttributes
 import scala.jdk.StreamConverters._
 
 object FileMover extends IOApp {
-    def makeFolder(fname: String): IO[Unit] = {
+    def makeFolder(fname: String, tbase: Option[Path] = None): IO[Unit] = {
         def job = {
-            val path = Paths.get(fname)
+            val path = tbase match {
+                case Some(tb) => 
+                    tb.resolve(fname)
+                case None =>
+                    Paths.get(fname)
+            }
             Files.createDirectories(path)
         }
         IO(job).handleErrorWith(_ match {
@@ -23,39 +28,47 @@ object FileMover extends IOApp {
         }).void
     }
 
-    def files(path: String, recursive: Boolean = true, ignoreHidden: Boolean = true): IO[List[Path]] = {
+    def listFiles(path: Path, recursive: Boolean = true, ignoreHidden: Boolean = true): IO[List[Path]] = {
         val level = if (recursive) Int.MaxValue else 1
         def filter(p: Path, fa: BasicFileAttributes) = 
             fa.isRegularFile() && 
             (!ignoreHidden || p.getFileName.toString.headOption.map(_ != '.').getOrElse(false))
-        IO(Files.find(Paths.get(path), level, filter).toScala(List))
+        IO(Files.find(path, level, filter).toScala(List))
     }
 
-    def moveTo(path: Path, fa: FileAttributes[_]) = {
-        val tDir = fa.apply(path)
+    def oPath(p: String): IO[Option[Path]] = {
+        val path = Paths.get(p).toAbsolutePath()
+        IO(Option.when(Files.exists(path) && Files.isDirectory(path))(path))
+    }
+
+    def moveTo(f: Path, tgt: Path, fa: FileAttributes[_]): IO[Unit] = {
+        val tDir = fa.apply(f)
         for {
-            _ <- makeFolder(tDir)
-            _ <- IO(println(tDir))
-            _ <- IO(Files.move())
+            _ <- makeFolder(tDir, Some(tgt))
+            tpath = tgt.resolve(tDir)
+            _ <- IO(println(s"Moving $f to $tpath"))
+            _ <- IO(Files.move(f, tpath.resolve(f.getFileName())))
         } yield()
     }
-    
+
+    def arrangeFiles(src:String, tgt: String, fa: FileAttributes[_]) = {
+        val oFiles = for {
+            op <- oPath(src)
+            fs <- op.map(p => listFiles(p, false)).sequence
+        } yield fs
+        val tOFolder = oPath(tgt)
+        for {
+            ofs <- oFiles
+            tf <- tOFolder
+            _ <- (ofs, tf).mapN({ case (fs, tf) =>
+                    fs.traverse(f => moveTo(f, tf, fa))
+                }).sequence
+        } yield ()
+    }
 
     def run(args: List[String]): IO[ExitCode] = {
         val srcName = args.headOption.getOrElse(".")
         val tgtName = args.drop(1).headOption.getOrElse("folder")
-        val absSrc = Paths.get(srcName).toAbsolutePath()
-        val absTgt = Paths.get(tgtName).toAbsolutePath()
-        val p = 
-            if (Files.exists(absSrc) && Files.isDirectory(absSrc))
-                IO.raiseError(new Exception("invalid Source path."))
-            else {
-                for {
-                    _ <- IO(println(s"$absSrc -> $tgtName"))
-                    ps <- files(srcName, false)
-                    _ <- ps.traverse(p => IO(println(s"$srcName : ${p.getFileName()} => ${FileNameAttributes(p)}")))
-                } yield()
-            } 
-        p.as(ExitCode.Success)
+        arrangeFiles(srcName, tgtName, FileNameAttributes).as(ExitCode.Success)
     }
 }

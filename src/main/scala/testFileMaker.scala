@@ -1,3 +1,4 @@
+/*
 import cats.effect._
 import cats.implicits._
 import scala.util.Random.{nextInt, alphanumeric}
@@ -6,7 +7,6 @@ import java.io.File
 import java.nio.file.{Paths, Files, AccessDeniedException}
 import java.io.FileOutputStream
 
-/*
 object TestFileMaker extends IOApp {
     /** random string between mn and mx */
     def fileName(mn: Int = 3, mx: Int = 8): IO[String] = 
