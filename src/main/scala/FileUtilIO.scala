@@ -7,10 +7,8 @@ import java.io.File
 import java.nio.file.{Path, Paths, Files, AccessDeniedException}
 import java.nio.file.attribute.BasicFileAttributes
 import scala.jdk.StreamConverters._
-import FileUtilIO._
 
-object FileMover extends IOApp {
-    /*
+object FileUtilIO {
     def makeFolder(fname: String, tbase: Option[Path] = None): IO[Unit] = {
         def job = {
             val path = tbase match {
@@ -50,29 +48,7 @@ object FileMover extends IOApp {
             tpath = tgt.resolve(tDir) // append target directory
             finalPath = tpath.resolve(f.getFileName()) // append file name
             _ <- IO(println(s"Moving $f to $finalPath"))
-            // _ <- IO(Files.move(f, finalPath))    // actual move
+            _ <- IO(Files.move(f, finalPath))    // actual move
         } yield()
-    }
-    */
-
-    def arrangeFiles(src:String, tgt: String, fa: FileAttributes[_]) = {
-        val oFiles = for {
-            op <- oPath(src)
-            fs <- op.map(p => listFiles(p, false)).sequence
-        } yield fs
-        val tOFolder = oPath(tgt)
-        for {
-            ofs <- oFiles
-            tf <- tOFolder
-            _ <- (ofs, tf).mapN({ case (fs, tf) =>
-                    fs.take(200).traverse(f => moveTo(f, tf, fa))   // remove take(200)
-                }).sequence
-        } yield ()
-    }
-
-    def run(args: List[String]): IO[ExitCode] = {
-        val srcName = args.headOption.getOrElse(".")
-        val tgtName = args.drop(1).headOption.getOrElse("folder")
-        arrangeFiles(srcName, tgtName, ExifDateAttributes).as(ExitCode.Success)
     }
 }
