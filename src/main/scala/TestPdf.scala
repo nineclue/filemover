@@ -15,7 +15,8 @@ import scala.jdk.CollectionConverters._
 object TestPdf extends IOApp {
     val xmpParser = new DomXmpParser()
 
-    def openpdf(f: File) = IO(PDDocument.load(f))
+    def openpdf(f: File) = 
+        Resource.make(IO(PDDocument.load(f)))(pdf => IO(pdf.close()))
 
     def extractMeta(doc: PDDocument) = 
         IO(doc.getDocumentCatalog().getMetadata())
@@ -36,13 +37,14 @@ object TestPdf extends IOApp {
     }
 
     def info(f: File) = {
-        for {
-            doc <- openpdf(f)
-            meta <- extractMeta(doc)
-            metadata = xmpParser.parse(meta.toByteArray())
-            odc = getODublinCoreSchema(metadata)
-            pi = getPDocInfo(doc)
-        } yield (f.getName, odc, pi)
+        openpdf(f).use( { doc =>
+            for {
+                meta <- extractMeta(doc)
+                metadata = xmpParser.parse(meta.toByteArray())
+                // odc = getODublinCoreSchema(metadata)
+                pi = getPDocInfo(doc)
+            } yield (f.getName, pi)
+        })
     }
 
     def run(args: List[String]): IO[ExitCode] = {

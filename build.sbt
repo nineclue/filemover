@@ -5,4 +5,5 @@ libraryDependencies ++= Seq(
     "com.drewnoakes" % "metadata-extractor" % "2.15.0",
     "org.apache.pdfbox" % "pdfbox" % "2.0.22",
     "org.apache.pdfbox" % "xmpbox" % "2.0.22",
+    "com.github.librepdf" % "openpdf" % "1.3.25"
 )
